@@ -1,0 +1,80 @@
+
+# coding: utf-8
+import numpy as np
+import math
+
+
+def load_data():
+    path_train="train.csv"
+    path_test="test.csv"
+    label=np.genfromtxt(path_train,delimiter=",",skip_header=1,usecols=[1],
+                       converters={1: lambda x: 1 if b"s" in x else 0})
+    data=np.genfromtxt(path_train,delimiter=",",skip_header=1,usecols=range(2,32))
+                                                                #usecols=range(2,32)
+                                                                #usecols=[1,12,16,18,19,24,25,26]
+                                                                 # tune the parameter first place
+    return label,data
+
+def shrink_data(label,data,train_size):
+    label_train=label[0:train_size]
+    data_train=data[0:train_size]
+    return label_train,data_train
+
+def seperate_data(label,data):
+    label_h=label[label==1]
+    label_b=label[label==0]
+    num_h=len(label_h)
+    num_b=len(label_b)
+    model_h=num_h/len(label)
+    model_b=num_b/len(label)
+    data_h=data[label==1]
+    data_b=data[label==0]
+    return model_h,model_b,data_h,data_b
+
+def derive_parameter(feature_h,feature_b):
+    u_h=np.mean(feature_h,0)
+    u_b=np.mean(feature_b,0)
+    sigma_h=np.cov(feature_h.T)
+    sigma_b=np.cov(feature_b.T)
+    return u_h,u_b,sigma_h,sigma_b
+
+def compute_likelihood(X, mean, sigma, model):
+    #q=-0.5*np.diag((X-mean)@np.linalg.inv(sigma)@(X-mean).T)
+    #q=-0.5*(X-mean)@np.linalg.inv(sigma)@(X-mean).T
+    #1/(pow(2*math.pi,30/2)*
+    log_ps=pow(np.linalg.det(sigma),0.5)*np.exp(-0.5*(X-mean)@np.linalg.inv(sigma)@(X-mean).T)*model   
+    ## tune the parameter second palce
+ 
+    return log_ps
+
+def binary_classify(u_h,u_b,sigma_h,sigma_b,model_h,model_b,label,data,test_begin,test_size):
+    us=[u_b,u_h]
+    sigmas=[sigma_b,sigma_h]
+    models=[model_b,model_h]
+    assignments=np.zeros(test_size)
+    #logs=np.zeros((test_size,2));
+    for i in range(test_size):
+        log_ps=[compute_likelihood(data[test_begin+i],m,s,model) for m,s,model in zip(us,sigmas,models)] 
+        #logs[i]=log_ps;
+        assignment = np.argmax(log_ps, axis=0)
+        assignments[i]=assignment
+    return assignments
+
+
+def performance(assignments,label,test_begin,test_size):
+    #sign_1=assignments-label[range(test_begin,test_begin+test_size)]
+    testset_label=label[range(test_begin,test_begin+test_size)]
+    sign_2=assignments+testset_label
+    #error_b=np.where(sign_1==1)
+    true_h=np.where(sign_2==2)
+    true_b=np.where(sign_2==0)
+    #=len(error_b[0])/
+    recall=len(true_h[0])/len(testset_label[testset_label==1])
+    precision=len(true_h[0])/len(assignments[assignments==1])
+    accuracy=(len(true_h[0])+len(true_b[0]))/test_size
+    return recall,precision,accuracy
+
+
+
+
+
